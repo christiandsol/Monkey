@@ -1,6 +1,7 @@
 use std::env;
 mod lexer;
 mod token_type;
+mod scanner;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
