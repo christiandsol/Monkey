@@ -1,5 +1,9 @@
-use crate::{lexer, token_type::{Token, TokenType}};
-use std::vec::Vec; // Import TokenType from the token_type module
+use crate::{
+    lexer::{error},
+    token_type::{Token, TokenType},
+};
+use std::any::Any;
+use std::{boxed, vec::Vec}; // Import TokenType from the token_type module
 pub struct Scanner {
     pub source: String,
     pub tokens: Vec<Token>,
@@ -55,10 +59,36 @@ impl Scanner {
         if self.is_at_end() {
             return '\0';
         }
-        self.source.chars().nth(self.current as usize)
+        self.source
+            .chars()
+            .nth(self.current as usize)
+            .expect("REASON")
     }
 
-    pub fn scan_token(&self) {
+    pub fn string(&mut self) {
+        while self.peek() != '"' && !self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+            self.advance();
+        }
+
+        if self.is_at_end(){
+            error(String::from("unterminated string"), self.line)
+        }
+
+        //advance past the closing '"'
+        self.advance();
+
+        let value: String = self.source[
+            (self.start + 1) as usize..(self.current + 1) 
+            as usize].to_string();
+        let boxed_value : Option<Box<dyn Any>> = Some(Box::new(value));
+
+        self.add_token_helper(TokenType::STRING, boxed_value)
+    }
+
+    pub fn scan_token(&mut self) {
         let c = self.advance();
 
         match c {
@@ -102,18 +132,19 @@ impl Scanner {
             }
             '/' => {
                 if self.match_char('/') {
-                    while (peek() != '\n' && !self.is_at_end()) {
-                        advance();
+                    while (self.peek() != '\n' && !self.is_at_end()) {
+                        self.advance();
                     }
                 } else {
                     self.add_token(TokenType::GREATER);
                 }
             }
-            '\n' => {self.line+=1}
-            ' ' | '\r' | '\t' =>{}
-            _ => {
-                lexer::error(String::from("Unexpected line"), self.line)
+            '\n' => self.line += 1,
+            ' ' | '\r' | '\t' => {}
+            '"' => {
+                self.string();
             }
+            _ => error(String::from("Unexpected line"), self.line),
         }
     }
 
